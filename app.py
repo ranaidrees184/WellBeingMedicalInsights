@@ -109,19 +109,24 @@ if st.button("Generate Insights"):
 
             # Handle tuple response safely
             if isinstance(response, tuple):
-                main_response = response[0]  # assume first element is the text
+                main_response = response[0]  # assume first element is main text
                 extra = response[1:] if len(response) > 1 else None
             else:
                 main_response = response
                 extra = None
 
+            # Display main insights
             st.write("### ✅ Medical Insights")
             format_llm_response(main_response)
 
-            # Optional: show extra structured outputs if API returned them
+            # Display any additional structured/text data
             if extra:
-                st.subheader("Additional Data")
-                st.write(extra)
+                st.subheader("📊 Additional Data")
+                for item in extra:
+                    if isinstance(item, str):
+                        format_llm_response(item)
+                    else:
+                        st.json(item)
 
         except Exception as e:
             st.error(f"Request failed: {e}")
