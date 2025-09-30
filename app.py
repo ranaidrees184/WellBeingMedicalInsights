@@ -68,6 +68,7 @@ def format_llm_response(response: str):
         except Exception:
             st.markdown("\n".join(["|".join(r) for r in table_buffer]))
 
+
 # ------------------ STREAMLIT APP ------------------
 st.title("🧪 LLM Medical Insights")
 
@@ -106,8 +107,21 @@ if st.button("Generate Insights"):
                 api_name="/analyze"
             )
 
+            # Handle tuple response safely
+            if isinstance(response, tuple):
+                main_response = response[0]  # assume first element is the text
+                extra = response[1:] if len(response) > 1 else None
+            else:
+                main_response = response
+                extra = None
+
             st.write("### ✅ Medical Insights")
-            format_llm_response(response)
+            format_llm_response(main_response)
+
+            # Optional: show extra structured outputs if API returned them
+            if extra:
+                st.subheader("Additional Data")
+                st.write(extra)
 
         except Exception as e:
             st.error(f"Request failed: {e}")
