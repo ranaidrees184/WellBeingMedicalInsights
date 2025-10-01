@@ -20,10 +20,10 @@ HEADINGS = [
 def format_llm_response(response: str):
     """
     Post-process LLM response:
-    - Bold system-defined headings
-    - Keep bullets (-, *, +)
-    - Render tables (|) as Markdown (no Pandas index issue)
-    - Render normal text with st.markdown
+    - Headings -> st.header()
+    - Bullets (-, *, +) -> st.markdown
+    - Tables -> st.markdown (raw markdown, no Pandas index)
+    - Normal text -> st.markdown
     """
     lines = response.strip().split("\n")
     table_buffer = []
@@ -40,13 +40,13 @@ def format_llm_response(response: str):
         else:
             # Flush table buffer before printing other text
             if table_buffer:
-                st.markdown("\n".join(table_buffer))  # render full table as markdown
+                st.markdown("\n".join(table_buffer))
                 table_buffer = []
 
         # Check if line matches one of the system headings
         clean_line = line.strip(": ")
         if clean_line in HEADINGS:
-            st.markdown(f"**{clean_line}**")  # bold heading
+            st.header(clean_line)  # prominent heading
             continue
 
         # Bullets
@@ -109,7 +109,7 @@ if st.button("Generate Insights"):
                 extra = None
 
             # Display main insights
-            st.write("### ✅ Medical Insights")
+            st.subheader("✅ Medical Insights")
             format_llm_response(main_response)
 
             # Display any additional structured/text data
