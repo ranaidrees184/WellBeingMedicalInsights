@@ -1,6 +1,5 @@
 import streamlit as st
 from gradio_client import Client
-import pandas as pd
 import re
 
 # ------------------ CONNECT TO GRADIO API ------------------
@@ -14,7 +13,8 @@ HEADINGS = [
     "Interaction Alerts",
     "Longevity Metrics",
     "Enhanced AI Insights",
-    "Longitudinal Risk"
+    "Longitudinal Risk",
+    "Tabular Mapping"
 ]
 
 def format_llm_response(response: str):
@@ -22,7 +22,7 @@ def format_llm_response(response: str):
     Post-process LLM response:
     - Bold system-defined headings
     - Keep bullets (-, *, +)
-    - Render tables (|) with st.table
+    - Render tables (|) as Markdown (no Pandas index issue)
     - Render normal text with st.markdown
     """
     lines = response.strip().split("\n")
@@ -33,17 +33,14 @@ def format_llm_response(response: str):
         if not line:
             continue
 
-        # Detect table rows
+        # Detect table rows (Markdown tables)
         if "|" in line and re.search(r"\|\s*\S+", line):
-            table_buffer.append([col.strip() for col in line.split("|") if col.strip()])
+            table_buffer.append(line)
             continue
         else:
+            # Flush table buffer before printing other text
             if table_buffer:
-                try:
-                    df = pd.DataFrame(table_buffer[1:], columns=table_buffer[0])
-                    st.table(df)
-                except Exception:
-                    st.markdown("\n".join(["|".join(r) for r in table_buffer]))
+                st.markdown("\n".join(table_buffer))  # render full table as markdown
                 table_buffer = []
 
         # Check if line matches one of the system headings
@@ -62,11 +59,7 @@ def format_llm_response(response: str):
 
     # Flush last table if exists
     if table_buffer:
-        try:
-            df = pd.DataFrame(table_buffer[1:], columns=table_buffer[0])
-            st.table(df)
-        except Exception:
-            st.markdown("\n".join(["|".join(r) for r in table_buffer]))
+        st.markdown("\n".join(table_buffer))
 
 
 # ------------------ STREAMLIT APP ------------------
