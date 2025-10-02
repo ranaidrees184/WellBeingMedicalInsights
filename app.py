@@ -3,7 +3,7 @@ from gradio_client import Client
 import re
 
 # ------------------ CONNECT TO GRADIO API ------------------
-client = Client("Muhammadidrees/WellBeingLLMSInsight")
+client = Client("Muhammadidrees/MoizMedgemma27b")
 
 # ------------------ FORMATTER FUNCTION ------------------
 HEADINGS = [
@@ -123,3 +123,4 @@ if st.button("Generate Insights"):
 
         except Exception as e:
             st.error(f"Request failed: {e}")
+
