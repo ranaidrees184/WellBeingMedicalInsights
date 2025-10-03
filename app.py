@@ -97,7 +97,7 @@ if st.button("Generate Insights"):
                 gender=gender,
                 height=height,
                 weight=weight,
-                api_name="/chat"
+                api_name="/respond"
             )
 
             # Handle tuple response safely
@@ -123,5 +123,6 @@ if st.button("Generate Insights"):
 
         except Exception as e:
             st.error(f"Request failed: {e}")
+
 
 
