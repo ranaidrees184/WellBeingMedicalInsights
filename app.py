@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 from gradio_client import Client
 import re
@@ -84,20 +85,19 @@ if st.button("Generate Insights"):
     with st.spinner("Contacting LLM..."):
         try:
             response = client.predict(
-                albumin=albumin,
-                creatinine=creatinine,
-                glucose=glucose,
-                crp=crp,
-                mcv=mcv,
-                rdw=rdw,
-                alp=alp,
-                wbc=wbc,
-                lymph=lymph,
-                age=age,
-                gender=gender,
-                height=height,
-                weight=weight,
-                api_name="/respond"
+                albumin,
+                creatinine,
+                glucose,
+                crp,
+                mcv,
+                rdw,
+                alp,
+                wbc,
+                lymph,
+                age,
+                gender,
+                height,
+                weight,
             )
 
             # Handle tuple response safely
@@ -123,6 +123,4 @@ if st.button("Generate Insights"):
 
         except Exception as e:
             st.error(f"Request failed: {e}")
-
-
-
+```
