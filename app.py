@@ -25,7 +25,7 @@ def format_llm_response(response: str):
     - Bullets (-, *, +) -> st.markdown
     - Tables -> st.markdown
     - Normal text -> st.markdown
-    - Skip empty lines and 'undefined'
+    - Skip empty lines and any variation of 'undefined'
     """
     if not response:
         st.warning("LLM returned empty response.")
@@ -41,9 +41,10 @@ def format_llm_response(response: str):
             table_buffer = []
 
     for line in lines:
-        line = line.strip()
-        if not line or line.lower() == "undefined":
-            continue  # skip empty lines or 'undefined'
+        # Normalize line
+        clean_line = line.strip().lower().replace("\u200b", "")
+        if not clean_line or clean_line == "undefined":
+            continue  # skip empty or undefined lines
 
         # Detect markdown tables
         if "|" in line and re.search(r"\|\s*\S+", line):
@@ -54,9 +55,9 @@ def format_llm_response(response: str):
         flush_table()
 
         # Headings
-        clean_line = line.strip(": ")
-        if clean_line in HEADINGS:
-            st.header(clean_line)
+        line_clean_heading = line.strip(": ")
+        if line_clean_heading in HEADINGS:
+            st.header(line_clean_heading)
             continue
 
         # Bullets
@@ -98,7 +99,7 @@ with col2:
 
 # ------------------ BUTTON ------------------
 if st.button("Generate Insights"):
-    with st.spinner("Generating..."):
+    with st.spinner("Contacting LLM..."):
         try:
             # ------------------ CALL LLM ------------------
             response = client.predict(
