@@ -22,15 +22,22 @@ def format_llm_response(response: str):
     Post-process LLM response:
     - Headings -> st.header()
     - Bullets (-, *, +) -> st.markdown
-    - Tables -> st.markdown (raw markdown, no Pandas index)
+    - Tables -> st.markdown (printed once per block)
     - Normal text -> st.markdown
     """
     lines = response.strip().split("\n")
     table_buffer = []
 
+    def flush_table():
+        nonlocal table_buffer
+        if table_buffer:
+            st.markdown("\n".join(table_buffer))
+            table_buffer = []
+
     for line in lines:
         line = line.rstrip()
         if not line:
+            flush_table()
             continue
 
         # Detect table rows (Markdown tables)
@@ -38,15 +45,12 @@ def format_llm_response(response: str):
             table_buffer.append(line)
             continue
         else:
-            # Flush table buffer before printing other text
-            if table_buffer:
-                st.markdown("\n".join(table_buffer))
-                table_buffer = []
+            flush_table()
 
         # Check if line matches one of the system headings
         clean_line = line.strip(": ")
         if clean_line in HEADINGS:
-            st.header(clean_line)  # prominent heading
+            st.header(clean_line)
             continue
 
         # Bullets
@@ -57,9 +61,8 @@ def format_llm_response(response: str):
         # Normal text
         st.markdown(line)
 
-    # Flush last table if exists
-    if table_buffer:
-        st.markdown("\n".join(table_buffer))
+    # Flush any remaining table
+    flush_table()
 
 
 # ------------------ STREAMLIT APP ------------------
