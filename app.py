@@ -25,7 +25,7 @@ def format_llm_response(response: str):
     - Bullets (-, *, +) -> st.markdown
     - Tables -> st.markdown
     - Normal text -> st.markdown
-    - Skip empty lines and any variation of 'undefined'
+    - Skip empty lines, 'undefined', and markdown code fences (``` ...)
     """
     if not response:
         st.warning("LLM returned empty response.")
@@ -43,8 +43,8 @@ def format_llm_response(response: str):
     for line in lines:
         # Normalize line
         clean_line = line.strip().lower().replace("\u200b", "")
-        if not clean_line or clean_line == "undefined":
-            continue  # skip empty or undefined lines
+        if not clean_line or clean_line == "undefined" or clean_line.startswith("```"):
+            continue  # skip empty, undefined, or code fence lines
 
         # Detect markdown tables
         if "|" in line and re.search(r"\|\s*\S+", line):
