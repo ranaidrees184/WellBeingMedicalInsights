@@ -25,7 +25,7 @@ def format_llm_response(response: str):
     - Bullets (-, *, +) -> st.markdown
     - Tables -> st.markdown
     - Normal text -> st.markdown
-    - Skip empty lines, 'undefined', and markdown code fences (``` ...)
+    - Skip empty lines, 'undefined', and markdown code fences (``` ... )
     """
     if not response:
         st.warning("LLM returned empty response.")
@@ -42,8 +42,8 @@ def format_llm_response(response: str):
 
     for line in lines:
         # Normalize line
-        clean_line = line.strip().lower().replace("\u200b", "")
-        if not clean_line or clean_line == "undefined" or clean_line.startswith("```"):
+        clean_line = line.strip().replace("\u200b", "")
+        if not clean_line or clean_line.lower() == "undefined" or clean_line.startswith("```"):
             continue  # skip empty, undefined, or code fence lines
 
         # Detect markdown tables
@@ -70,7 +70,6 @@ def format_llm_response(response: str):
 
     # Flush any remaining table at the end
     flush_table()
-
 
 # ------------------ STREAMLIT APP ------------------
 st.set_page_config(page_title="LLM Medical Insights", layout="centered")
@@ -118,13 +117,16 @@ if st.button("Generate Insights"):
                 weight,
             )
 
-            # Only use the first element if tuple to avoid duplication
-            main_response = response[0] if isinstance(response, tuple) else response
+            # ------------------ HANDLE DUPLICATES ------------------
+            if isinstance(response, tuple):
+                # Flatten and remove duplicates
+                response_str = "\n".join(dict.fromkeys([str(r) for r in response]))
+            else:
+                response_str = str(response)
 
             # ------------------ DISPLAY ------------------
             st.subheader("✅ Medical Insights")
-            format_llm_response(main_response)
+            format_llm_response(response_str)
 
         except Exception as e:
             st.error(f"Request failed: {e}")
-
