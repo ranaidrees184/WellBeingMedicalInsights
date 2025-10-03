@@ -5,7 +5,7 @@ import re
 # ------------------ CONNECT TO GRADIO API ------------------
 client = Client("Muhammadidrees/MoizMedgemma27b")
 
-# ------------------ FORMATTER FUNCTION ------------------
+# ------------------ HEADINGS ------------------
 HEADINGS = [
     "Executive Summary",
     "System-Specific Analysis",
@@ -17,12 +17,13 @@ HEADINGS = [
     "Tabular Mapping"
 ]
 
+# ------------------ FORMATTER FUNCTION ------------------
 def format_llm_response(response: str):
     """
     Post-process LLM response:
     - Headings -> st.header()
     - Bullets (-, *, +) -> st.markdown
-    - Tables -> st.markdown (printed once per block)
+    - Tables -> st.markdown
     - Normal text -> st.markdown
     """
     lines = response.strip().split("\n")
@@ -37,17 +38,17 @@ def format_llm_response(response: str):
     for line in lines:
         line = line.rstrip()
         if not line:
-            flush_table()
-            continue
+            continue  # skip blank lines
 
-        # Detect table rows (Markdown tables)
+        # Detect markdown tables
         if "|" in line and re.search(r"\|\s*\S+", line):
             table_buffer.append(line)
             continue
-        else:
-            flush_table()
 
-        # Check if line matches one of the system headings
+        # Flush table when switching to normal text
+        flush_table()
+
+        # Headings
         clean_line = line.strip(": ")
         if clean_line in HEADINGS:
             st.header(clean_line)
@@ -61,31 +62,35 @@ def format_llm_response(response: str):
         # Normal text
         st.markdown(line)
 
-    # Flush any remaining table
+    # Flush any remaining table at the end
     flush_table()
 
 
 # ------------------ STREAMLIT APP ------------------
 st.title("🧪 LLM Medical Insights")
 
+st.subheader("Enter Patient Biomarkers")
+
 # Input fields
-albumin = st.number_input("Albumin", value=3.5)
-creatinine = st.number_input("Creatinine", value=1.0)
-glucose = st.number_input("Glucose", value=90.0)
-crp = st.number_input("CRP", value=1.0)
-mcv = st.number_input("MCV", value=85.0)
-rdw = st.number_input("RDW", value=12.0)
-alp = st.number_input("ALP", value=100.0)
-wbc = st.number_input("WBC", value=6.0)
-lymph = st.number_input("Lymphocytes", value=2.0)
+albumin = st.number_input("Albumin (g/dL)", value=3.5)
+creatinine = st.number_input("Creatinine (mg/dL)", value=1.0)
+glucose = st.number_input("Glucose (mg/dL)", value=90.0)
+crp = st.number_input("CRP (mg/L)", value=1.0)
+mcv = st.number_input("MCV (fL)", value=85.0)
+rdw = st.number_input("RDW (%)", value=12.0)
+alp = st.number_input("ALP (U/L)", value=100.0)
+wbc = st.number_input("WBC (x10^9/μL)", value=6.0)
+lymph = st.number_input("Lymphocytes (%)", value=30.0)
 age = st.number_input("Age", value=30)
 gender = st.selectbox("Gender", ["Male", "Female"])
 height = st.number_input("Height (cm)", value=170)
 weight = st.number_input("Weight (kg)", value=70)
 
+# Generate insights button
 if st.button("Generate Insights"):
     with st.spinner("Contacting LLM..."):
         try:
+            # ------------------ CALL LLM ------------------
             response = client.predict(
                 albumin,
                 creatinine,
@@ -102,26 +107,13 @@ if st.button("Generate Insights"):
                 weight,
             )
 
-            # Handle tuple response safely
-            if isinstance(response, tuple):
-                main_response = response[0]  # assume first element is main text
-                extra = response[1:] if len(response) > 1 else None
-            else:
-                main_response = response
-                extra = None
+            # ------------------ HANDLE RESPONSE ------------------
+            # Only use the first element if tuple to avoid duplicate content
+            main_response = response[0] if isinstance(response, tuple) else response
 
-            # Display main insights
+            # Display insights
             st.subheader("✅ Medical Insights")
             format_llm_response(main_response)
-
-            # Display any additional structured/text data
-            if extra:
-                st.subheader("📊 Additional Data")
-                for item in extra:
-                    if isinstance(item, str):
-                        format_llm_response(item)
-                    else:
-                        st.json(item)
 
         except Exception as e:
             st.error(f"Request failed: {e}")
