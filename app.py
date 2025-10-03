@@ -99,7 +99,7 @@ with col2:
 
 # ------------------ BUTTON ------------------
 if st.button("Generate Insights"):
-    with st.spinner("Contacting LLM..."):
+    with st.spinner("Generating..."):
         try:
             # ------------------ CALL LLM ------------------
             response = client.predict(
@@ -127,3 +127,4 @@ if st.button("Generate Insights"):
 
         except Exception as e:
             st.error(f"Request failed: {e}")
+
