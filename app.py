@@ -1,131 +1,78 @@
-import streamlit as st
+import gradio as gr
 from gradio_client import Client
 import re
 
-# ------------------ CONNECT TO GRADIO API ------------------
+# ------------------ CONNECT TO YOUR LLM API ------------------
 client = Client("Muhammadidrees/MoizMedgemma27b")
 
-# ------------------ HEADINGS ------------------
-HEADINGS = [
-    "Executive Summary",
-    "System-Specific Analysis",
-    "Personalized Action Plan",
-    "Interaction Alerts",
-    "Longevity Metrics",
-    "Enhanced AI Insights",
-    "Longitudinal Risk",
-    "Tabular Mapping"
-]
-
-# ------------------ FORMATTER FUNCTION ------------------
-def format_llm_response(response: str):
+# ------------------ CLEANING FUNCTION ------------------
+def clean_llm_output(raw_text):
     """
-    Post-process LLM response:
-    - Headings -> st.header()
-    - Bullets (-, *, +) -> st.markdown
-    - Tables -> st.markdown
-    - Normal text -> st.markdown
+    Cleans LLM output for frontend display:
+    - Removes raw ranges or unwanted text at the top
+    - Removes 'undefined'
+    - Strips extra whitespace
     """
-    if not response:
-        st.warning("LLM returned empty response.")
-        return
+    # Remove everything before first 'Tabular Mapping'
+    split_text = re.split(r"Tabular Mapping", raw_text, maxsplit=1)
+    if len(split_text) > 1:
+        cleaned_text = "Tabular Mapping" + split_text[1]
+    else:
+        cleaned_text = raw_text
 
-    lines = response.strip().split("\n")
-    table_buffer = []
+    # Remove 'undefined'
+    cleaned_text = re.sub(r"\bundefined\b", "", cleaned_text, flags=re.IGNORECASE)
 
-    def flush_table():
-        nonlocal table_buffer
-        if table_buffer:
-            st.markdown("\n".join(table_buffer))
-            table_buffer = []
+    # Strip extra newlines
+    cleaned_text = cleaned_text.strip()
 
-    for line in lines:
-        line = line.rstrip()
-        if not line:
-            continue  # skip blank lines
+    return cleaned_text
 
-        # Detect markdown tables
-        if "|" in line and re.search(r"\|\s*\S+", line):
-            table_buffer.append(line)
-            continue
+# ------------------ PREDICTION FUNCTION ------------------
+def get_biomarker_insights(input_json):
+    """
+    input_json: dictionary of biomarkers, e.g.
+    {
+        "age": 45,
+        "albumin_gL": 3.5,
+        "creat_umol": 1.0,
+        "glucose_mmol": 90.0,
+        "lncrp": 1.0,
+        "mcv": 85.0,
+        "rdw": 12.0,
+        "alp": 100.0,
+        "wbc": 6.0,
+        "lymph": 30.0
+    }
+    """
+    try:
+        # Call the LLM Gradio API
+        raw_response = client.predict(input_json, api_name="/predict")
+        # Clean the response
+        clean_response = clean_llm_output(raw_response)
+        return clean_response
+    except Exception as e:
+        return f"Error fetching insights: {e}"
 
-        # Flush table when switching to normal text
-        flush_table()
-
-        # Headings
-        clean_line = line.strip(": ")
-        if clean_line in HEADINGS:
-            st.header(clean_line)
-            continue
-
-        # Bullets
-        if line.startswith(("-", "*", "+")):
-            st.markdown(line)
-            continue
-
-        # Normal text
-        st.markdown(line)
-
-    # Flush any remaining table at the end
-    flush_table()
-
-# ------------------ STREAMLIT APP ------------------
-st.set_page_config(page_title="LLM Medical Insights", layout="centered")
-st.title("🧪 LLM Medical Insights")
-st.write("Enter patient biomarkers below and click **Generate Insights**.")
-
-# ------------------ INPUT FIELDS ------------------
-col1, col2 = st.columns(2)
-
-with col1:
-    albumin = st.number_input("Albumin (g/dL)", value=3.5)
-    creatinine = st.number_input("Creatinine (mg/dL)", value=1.0)
-    glucose = st.number_input("Glucose (mg/dL)", value=90.0)
-    crp = st.number_input("CRP (mg/L)", value=1.0)
-    mcv = st.number_input("MCV (fL)", value=85.0)
-    rdw = st.number_input("RDW (%)", value=12.0)
-
-with col2:
-    alp = st.number_input("ALP (U/L)", value=100.0)
-    wbc = st.number_input("WBC (x10^9/μL)", value=6.0)
-    lymph = st.number_input("Lymphocytes (%)", value=30.0)
-    age = st.number_input("Age", value=30)
-    gender = st.selectbox("Gender", ["Male", "Female"])
-    height = st.number_input("Height (cm)", value=170)
-    weight = st.number_input("Weight (kg)", value=70)
-
-# ------------------ BUTTON ------------------
-if st.button("Generate Insights"):
-    with st.spinner("Contacting LLM..."):
-        try:
-            # ------------------ CALL LLM ------------------
-            response = client.predict(
-                albumin,
-                creatinine,
-                glucose,
-                crp,
-                mcv,
-                rdw,
-                alp,
-                wbc,
-                lymph,
-                age,
-                gender,
-                height,
-                weight,
+# ------------------ GRADIO INTERFACE ------------------
+with gr.Blocks() as demo:
+    gr.Markdown("## 🧬 Biomarker Analysis & Insights")
+    
+    with gr.Row():
+        with gr.Column():
+            # Input: JSON textbox for biomarkers
+            biomarker_input = gr.Textbox(
+                label="Enter biomarkers as JSON",
+                placeholder='{"age": 45, "albumin_gL": 3.5, "creat_umol": 1.0, "glucose_mmol": 90.0, "lncrp": 1.0, "mcv": 85.0, "rdw": 12.0, "alp": 100.0, "wbc": 6.0, "lymph": 30.0}',
+                lines=10
             )
+            submit_btn = gr.Button("Get Insights")
+        
+        with gr.Column():
+            output_box = gr.Markdown(label="AI Insights")
 
-            # ------------------ HANDLE RESPONSE ------------------
-            # Only use the first element if tuple to avoid duplication
-            main_response = response[0] if isinstance(response, tuple) else response
+    # Connect button to function
+    submit_btn.click(fn=lambda x: get_biomarker_insights(eval(x)), inputs=biomarker_input, outputs=output_box)
 
-            # DEBUG: show raw response
-            st.subheader("📄 Raw LLM Response (for debugging)")
-            st.text(main_response[:1000] + "..." if len(main_response) > 1000 else main_response)
-
-            # Display formatted insights
-            st.subheader("✅ Medical Insights")
-            format_llm_response(main_response)
-
-        except Exception as e:
-            st.error(f"Request failed: {e}")
+# Launch the app
+demo.launch()
