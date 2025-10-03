@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 from gradio_client import Client
 import re
@@ -123,4 +122,3 @@ if st.button("Generate Insights"):
 
         except Exception as e:
             st.error(f"Request failed: {e}")
-```
