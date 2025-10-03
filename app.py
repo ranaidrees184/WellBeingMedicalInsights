@@ -1,136 +1,131 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-from enum import Enum
-from typing import List, Optional
+import streamlit as st
 from gradio_client import Client
 import re
 
-# -------------------------------
-# Enum for gender
-# -------------------------------
-class Gender(str, Enum):
-    male = "Male"
-    female = "Female"
-
-# -------------------------------
-# Individual biomarker input
-# -------------------------------
-class BiomarkerInput(BaseModel):
-    age: int
-    albumin_gL: float
-    creat_umol: float
-    glucose_mmol: float
-    lncrp: float
-    lymph: float
-    mcv: float
-    rdw: float
-    alp: float
-    wbc: float
-    gender: Gender = Field(..., description="Select 'Male' or 'Female'")
-    height: Optional[float] = None
-    weight: Optional[float] = None
-
-# -------------------------------
-# Request model: List of patients
-# -------------------------------
-class BiomarkerListRequest(BaseModel):
-    patients: List[BiomarkerInput]
-
-# -------------------------------
-# Gradio client
-# -------------------------------
+# ------------------ CONNECT TO GRADIO API ------------------
 client = Client("Muhammadidrees/MoizMedgemma27b")
 
-# -------------------------------
-# Parse LLM markdown into JSON
-# -------------------------------
-def parse_result_to_json(result_text: str):
-    data = {
-        "normal_ranges": {},
-        "biomarker_table": [],
-        "executive_summary": {"top_priorities": [], "key_strengths": []},
-        "system_analysis": {"status": "", "explanation": ""},
-        "action_plan": {"nutrition": "", "lifestyle": "", "medical": "", "testing": ""},
-        "interaction_alerts": []
-    }
+# ------------------ HEADINGS ------------------
+HEADINGS = [
+    "Executive Summary",
+    "System-Specific Analysis",
+    "Personalized Action Plan",
+    "Interaction Alerts",
+    "Longevity Metrics",
+    "Enhanced AI Insights",
+    "Longitudinal Risk",
+    "Tabular Mapping"
+]
 
-    # Normal ranges
-    normal_ranges = re.findall(r"- ([A-Za-z ]+): ([0-9.\-–]+.*)", result_text)
-    for biomarker, value in normal_ranges:
-        data["normal_ranges"][biomarker.strip()] = value.strip()
+# ------------------ FORMATTER FUNCTION ------------------
+def format_llm_response(response: str):
+    """
+    Post-process LLM response:
+    - Headings -> st.header()
+    - Bullets (-, *, +) -> st.markdown
+    - Tables -> st.markdown
+    - Normal text -> st.markdown
+    """
+    if not response:
+        st.warning("LLM returned empty response.")
+        return
 
-    # Biomarker table
-    table_match = re.search(r"\| Biomarker \| Value \|.*?\|\n((?:\|.*\|\n)+)", result_text, re.S)
-    if table_match:
-        rows = table_match.group(1).strip().split("\n")
-        for row in rows:
-            parts = [p.strip() for p in row.strip("|").split("|")]
-            if len(parts) == 4:
-                data["biomarker_table"].append({
-                    "biomarker": parts[0],
-                    "value": parts[1],
-                    "status": parts[2],
-                    "insight": parts[3],
-                })
+    lines = response.strip().split("\n")
+    table_buffer = []
 
-    # Executive summary
-    priorities = re.findall(r"\d+\.\s+(.*)", result_text)
-    data["executive_summary"]["top_priorities"] = priorities[:3]
-    strengths = re.findall(r"- Normal (.*)", result_text)
-    data["executive_summary"]["key_strengths"] = strengths
+    def flush_table():
+        nonlocal table_buffer
+        if table_buffer:
+            st.markdown("\n".join(table_buffer))
+            table_buffer = []
 
-    # System analysis
-    sys_match = re.search(r"System-Specific Analysis\n- Status: (.*?)\n- Explanation: (.*?)\n", result_text, re.S)
-    if sys_match:
-        data["system_analysis"]["status"] = sys_match.group(1).strip()
-        data["system_analysis"]["explanation"] = sys_match.group(2).strip()
+    for line in lines:
+        line = line.rstrip()
+        if not line:
+            continue  # skip blank lines
 
-    # Action plan
-    plan_matches = re.findall(r"- (\w+): (.*)", result_text)
-    for category, content in plan_matches:
-        key = category.lower()
-        if key in data["action_plan"]:
-            data["action_plan"][key] = content.strip()
+        # Detect markdown tables
+        if "|" in line and re.search(r"\|\s*\S+", line):
+            table_buffer.append(line)
+            continue
 
-    # Interaction alerts
-    interactions = re.findall(r"- (The .*?)\n", result_text)
-    data["interaction_alerts"] = interactions
+        # Flush table when switching to normal text
+        flush_table()
 
-    return data
+        # Headings
+        clean_line = line.strip(": ")
+        if clean_line in HEADINGS:
+            st.header(clean_line)
+            continue
 
-# -------------------------------
-# FastAPI app
-# -------------------------------
-app = FastAPI(title="Multi-Patient Biomarker Analysis API", version="1.0")
+        # Bullets
+        if line.startswith(("-", "*", "+")):
+            st.markdown(line)
+            continue
 
-@app.post("/analyze_patients")
-async def analyze_patients(request: BiomarkerListRequest):
-    results = []
-    for patient in request.patients:
+        # Normal text
+        st.markdown(line)
+
+    # Flush any remaining table at the end
+    flush_table()
+
+# ------------------ STREAMLIT APP ------------------
+st.set_page_config(page_title="LLM Medical Insights", layout="centered")
+st.title("🧪 LLM Medical Insights")
+st.write("Enter patient biomarkers below and click **Generate Insights**.")
+
+# ------------------ INPUT FIELDS ------------------
+col1, col2 = st.columns(2)
+
+with col1:
+    albumin = st.number_input("Albumin (g/dL)", value=3.5)
+    creatinine = st.number_input("Creatinine (mg/dL)", value=1.0)
+    glucose = st.number_input("Glucose (mg/dL)", value=90.0)
+    crp = st.number_input("CRP (mg/L)", value=1.0)
+    mcv = st.number_input("MCV (fL)", value=85.0)
+    rdw = st.number_input("RDW (%)", value=12.0)
+
+with col2:
+    alp = st.number_input("ALP (U/L)", value=100.0)
+    wbc = st.number_input("WBC (x10^9/μL)", value=6.0)
+    lymph = st.number_input("Lymphocytes (%)", value=30.0)
+    age = st.number_input("Age", value=30)
+    gender = st.selectbox("Gender", ["Male", "Female"])
+    height = st.number_input("Height (cm)", value=170)
+    weight = st.number_input("Weight (kg)", value=70)
+
+# ------------------ BUTTON ------------------
+if st.button("Generate Insights"):
+    with st.spinner("Contacting LLM..."):
         try:
-            # Call LLM
-            result_text = client.predict(
-                albumin=patient.albumin_gL,
-                creatinine=patient.creat_umol,
-                glucose=patient.glucose_mmol,
-                crp=patient.lncrp,
-                mcv=patient.mcv,
-                rdw=patient.rdw,
-                alp=patient.alp,
-                wbc=patient.wbc,
-                lymphocytes=patient.lymph,
-                age=patient.age,
-                gender=patient.gender.value,
-                height=patient.height or 0,
-                weight=patient.weight or 0,
-                api_name="/respond"
+            # ------------------ CALL LLM ------------------
+            response = client.predict(
+                albumin,
+                creatinine,
+                glucose,
+                crp,
+                mcv,
+                rdw,
+                alp,
+                wbc,
+                lymph,
+                age,
+                gender,
+                height,
+                weight,
             )
 
-            # Parse markdown into structured JSON
-            parsed_json = parse_result_to_json(result_text)
-            results.append({"patient": patient.dict(), "analysis": parsed_json})
+            # ------------------ HANDLE RESPONSE ------------------
+            # Only use the first element if tuple to avoid duplication
+            main_response = response[0] if isinstance(response, tuple) else response
+
+            # DEBUG: show raw response
+            st.subheader("📄 Raw LLM Response (for debugging)")
+            st.text(main_response[:1000] + "..." if len(main_response) > 1000 else main_response)
+
+            # Display formatted insights
+            st.subheader("✅ Medical Insights")
+            format_llm_response(main_response)
 
         except Exception as e:
-            results.append({"patient": patient.dict(), "error": str(e)})
-
-    return {"results": results}
+            st.error(f"Request failed: {e}")
